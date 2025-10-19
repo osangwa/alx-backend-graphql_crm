@@ -17,6 +17,26 @@ class OrderType(DjangoObjectType):
         model = Order
         fields = "__all__"
 
+class CreateCustomer(graphene.Mutation):
+    class Arguments:
+        name = graphene.String(required=True)
+        email = graphene.String(required=True)
+        phone = graphene.String(required=True)
+
+    customer = graphene.Field(CustomerType)
+
+    def mutate(self, info, name, email, phone):
+        customer = Customer(
+            name=name,
+            email=email,
+            phone=phone
+        )
+        customer.save()
+        return CreateCustomer(customer=customer)
+
+class Mutation(graphene.ObjectType):
+    create_customer = CreateCustomer.Field()
+
 class Query(graphene.ObjectType):
     hello = graphene.String()
     all_customers = graphene.List(CustomerType)

@@ -27,7 +27,8 @@ deleted_count = len(inactive_customers)
 for customer in inactive_customers:
     customer.delete()
 
-# Log the result
-with open('/tmp/customer_cleanup_log.txt', 'a') as f:
-    f.write(f"$(date): Deleted {deleted_count} inactive customers\n")
-EOF
+# Log the result using print
+import datetime
+timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+print(f"{timestamp}: Deleted {deleted_count} inactive customers")
+EOF >> /tmp/customer_cleanup_log.txt 2>&1

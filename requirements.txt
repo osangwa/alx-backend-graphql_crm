@@ -1,2 +1,5 @@
 django-crontab
-gql[requests]
+Django>=3.2
+gql[requests]>=3.0
+graphene-django
+requests

@@ -3,6 +3,7 @@ from graphene_django import DjangoObjectType
 from graphene_django.filter import DjangoFilterConnectionField
 from .models import Customer, Product, Order
 from django.db import transaction
+from crm.models import Product
 
 class CustomerType(DjangoObjectType):
     class Meta:
@@ -92,3 +93,41 @@ schema = graphene.Schema(
     query=Query,  # Your existing Query class
     mutation=Mutation
 )
+
+class ProductType(DjangoObjectType):
+    class Meta:
+        model = Product
+        fields = "__all__"
+
+class UpdateLowStockProducts(graphene.Mutation):
+    class Arguments:
+        pass
+
+    success = graphene.Boolean()
+    message = graphene.String()
+    updated_products = graphene.List(ProductType)
+
+    @transaction.atomic
+    def mutate(self, info):
+        try:
+            # Find products with stock less than 10
+            low_stock_products = Product.objects.filter(stock__lt=10)
+            updated_count = low_stock_products.count()
+            
+            # Update stock by adding 10 to each low stock product
+            for product in low_stock_products:
+                product.stock += 10
+                product.save()
+            
+            return UpdateLowStockProducts(
+                success=True,
+                message=f"Updated {updated_count} low-stock products",
+                updated_products=low_stock_products
+            )
+            
+        except Exception as e:
+            return UpdateLowStockProducts(
+                success=False,
+                message=f"Error updating low-stock products: {str(e)}",
+                updated_products=[]
+            )

@@ -51,6 +51,20 @@ class Query(graphene.ObjectType):
 
     def resolve_hello(self, info):
         return "Hello, GraphQL!"
+    
+    total_customers = graphene.Int()
+    total_orders = graphene.Int()
+    total_revenue = graphene.Float()
+    
+    def resolve_total_customers(self, info):
+        return Customer.objects.count()
+    
+    def resolve_total_orders(self, info):
+        return Order.objects.count()
+    
+    def resolve_total_revenue(self, info):
+        result = Order.objects.aggregate(total_revenue=Sum('total_amount'))
+        return result['total_revenue'] or 0.0
 
 class UpdateLowStockProducts(graphene.Mutation):
     class Arguments:

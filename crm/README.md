@@ -1,22 +1,14 @@
-# CRM Application with Automated Reporting
+# CRM Reports - Celery Setup Guide
 
-A Django-based CRM system with automated weekly report generation using Celery, Redis, and GraphQL.
-
-## Features
-
-- Customer and order management
-- GraphQL API for data queries
-- Automated weekly reports via Celery
-- Redis-backed task queue
-- Scheduled report generation every Monday at 6:00 AM
+This guide provides step-by-step instructions for setting up Celery with Celery Beat to generate automated weekly CRM reports.
 
 ## Prerequisites
 
 - Python 3.8+
+- Django project set up
 - Redis server
-- pip package manager
 
-## Installation
+## Setup Steps
 
 ### 1. Install Redis
 
@@ -34,13 +26,13 @@ brew install redis
 brew services start redis
 ```
 
-**Verify Redis Installation:**
+**Verify Redis is running:**
 ```bash
 redis-cli ping
 # Expected output: PONG
 ```
 
-### 2. Install Python Dependencies
+### 2. Install Dependencies
 
 Add the following to your `requirements.txt`:
 
@@ -52,14 +44,15 @@ requests
 gql[requests]
 ```
 
-Install dependencies:
+Install the dependencies:
+
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. Configure Celery
+### 3. Create Celery Configuration
 
-**Create `crm/celery.py`:**
+**File: `crm/celery.py`**
 
 ```python
 import os
@@ -72,7 +65,7 @@ app.config_from_object('django.conf:settings', namespace='CELERY')
 app.autodiscover_tasks()
 ```
 
-**Update `crm/__init__.py`:**
+**File: `crm/__init__.py`**
 
 ```python
 from .celery import app as celery_app
@@ -82,7 +75,7 @@ __all__ = ('celery_app',)
 
 ### 4. Create Celery Task
 
-**Create `crm/tasks.py`:**
+**File: `crm/tasks.py`**
 
 ```python
 from celery import shared_task
@@ -141,9 +134,10 @@ def generate_crm_report():
 
 ### 5. Update Django Settings
 
-**Edit `crm/settings.py`:**
+**File: `crm/settings.py`**
 
-Add to `INSTALLED_APPS`:
+Add `django_celery_beat` to `INSTALLED_APPS`:
+
 ```python
 INSTALLED_APPS = [
     # ... other apps
@@ -152,7 +146,8 @@ INSTALLED_APPS = [
 ]
 ```
 
-Add Celery configuration at the end of the file:
+Add Celery configuration:
+
 ```python
 # Celery Configuration
 CELERY_BROKER_URL = 'redis://localhost:6379/0'
@@ -174,9 +169,9 @@ CELERY_BEAT_SCHEDULE = {
 
 ### 6. Update GraphQL Schema
 
-**Edit `crm/schema.py`:**
+**File: `crm/schema.py`**
 
-Add these fields to your `Query` class:
+Add the following fields to your `Query` class:
 
 ```python
 class Query(graphene.ObjectType):
@@ -199,116 +194,125 @@ class Query(graphene.ObjectType):
         return result['total_revenue'] or 0.0
 ```
 
-### 7. Run Database Migrations
+### 7. Run Migrations
+
+Run Django migrations to set up the database tables for django-celery-beat:
 
 ```bash
 python manage.py makemigrations
 python manage.py migrate
 ```
 
-## Running the Application
+### 8. Start Celery Worker
 
-### 1. Start Django Development Server
-
-```bash
-python manage.py runserver
-```
-
-### 2. Start Celery Worker
-
-Open a new terminal and run:
+Open a terminal and start the Celery worker:
 
 ```bash
 celery -A crm worker -l info
 ```
 
-### 3. Start Celery Beat Scheduler
+Keep this terminal running.
 
-Open another terminal and run:
+### 9. Start Celery Beat
+
+Open a new terminal and start the Celery Beat scheduler:
 
 ```bash
 celery -A crm beat -l info
 ```
 
-## Monitoring
+Keep this terminal running as well.
 
-### View Report Logs
+### 10. Verify Logs
+
+To monitor the CRM report logs:
 
 ```bash
 tail -f /tmp/crm_report_log.txt
 ```
 
-### Manual Task Execution
+## Report Schedule
 
-To manually trigger the report generation:
+The CRM report will run automatically **every Monday at 6:00 AM UTC** and log the results to `/tmp/crm_report_log.txt`.
+
+## Manual Testing
+
+To manually trigger the report generation for testing:
+
+```bash
+python manage.py shell
+```
+
+Then in the Python shell:
 
 ```python
 from crm.tasks import generate_crm_report
 generate_crm_report.delay()
 ```
 
-Or via Django shell:
+## Expected Log Format
 
-```bash
-python manage.py shell
->>> from crm.tasks import generate_crm_report
->>> generate_crm_report.delay()
+The log file will contain entries in this format:
+
+```
+YYYY-MM-DD HH:MM:SS - Report: X customers, Y orders, Z revenue
 ```
 
-## Report Schedule
-
-The CRM report runs automatically every **Monday at 6:00 AM UTC**.
-
-To modify the schedule, edit the `CELERY_BEAT_SCHEDULE` in `crm/settings.py`.
+Example:
+```
+2025-11-02 06:00:00 - Report: 150 customers, 320 orders, 45000.00 revenue
+```
 
 ## Troubleshooting
 
 ### Redis Connection Issues
 
-Check if Redis is running:
-```bash
-redis-cli ping
-```
+If you encounter Redis connection errors:
 
-Restart Redis if needed:
 ```bash
-# Ubuntu/Debian
+# Check if Redis is running
+redis-cli ping
+
+# Restart Redis if needed (Ubuntu/Debian)
 sudo systemctl restart redis
 
-# macOS
+# Restart Redis if needed (macOS)
 brew services restart redis
 ```
 
-### Celery Worker Not Picking Up Tasks
+### Celery Worker Issues
 
-1. Ensure the worker is running
-2. Check the Celery logs for errors
-3. Verify Redis is accessible
-4. Restart the Celery worker
+- Ensure the Django development server is running on `http://localhost:8000`
+- Verify the GraphQL endpoint is accessible at `/graphql`
+- Check that the `Customer` and `Order` models exist and have data
+- Review the Celery worker logs for any error messages
 
-### GraphQL Query Errors
+### Task Not Running
 
-1. Verify Django server is running on `http://localhost:8000`
-2. Check that GraphQL endpoint is accessible at `/graphql`
-3. Ensure models (`Customer`, `Order`) exist and have data
+- Verify Celery Beat is running
+- Check the schedule configuration in `settings.py`
+- Ensure the timezone is set correctly
+- Look for errors in the Celery Beat logs
+
+## Production Deployment
+
+For production environments, consider:
+
+1. Using a process manager like Supervisor or systemd to keep Celery workers running
+2. Setting up proper logging with log rotation
+3. Using a more robust message broker setup
+4. Implementing monitoring and alerting for task failures
+5. Adjusting the `CELERY_TIMEZONE` to match your application's timezone
 
 ## Project Structure
 
 ```
 crm/
-├── __init__.py          # Celery app initialization
-├── celery.py            # Celery configuration
-├── settings.py          # Django settings with Celery config
-├── tasks.py             # Celery tasks
-├── schema.py            # GraphQL schema
-├── models.py            # Django models
-└── README.md            # This file
+├── __init__.py              # Celery app initialization
+├── celery.py                # Celery configuration
+├── settings.py              # Django settings with Celery config
+├── tasks.py                 # Celery tasks (generate_crm_report)
+├── schema.py                # GraphQL schema with report queries
+├── models.py                # Customer and Order models
+└── README.md                # This file
 ```
-
-## License
-
-[Your License Here]
-
-## Contributing
-
-[Your Contributing Guidelines Here]

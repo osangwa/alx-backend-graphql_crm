@@ -1,21 +1,16 @@
 # Celery Setup for CRM Reports
 
-This guide explains how to set up Celery with Celery Beat for generating weekly CRM reports in the Django CRM application.
+This guide provides step-by-step instructions to set up Celery with Celery Beat for generating weekly CRM reports.
 
-## Prerequisites
+## Setup Steps
 
-- Python 3.8+
-- Django 3.2+
-- Redis server
-- Existing Django CRM project with GraphQL endpoints
+### 1. Install Redis and Dependencies
 
-## Installation Steps
+**Install Redis:**
 
-### 1. Install Dependencies
-
+**Ubuntu/Debian:**
 ```bash
-# Install required Python packages
-pip install -r requirements.txt
-
-# Or install individually if needed
-pip install celery django-celery-beat redis requests gql[requests]
+sudo apt update
+sudo apt install redis-server
+sudo systemctl start redis
+sudo systemctl enable redis

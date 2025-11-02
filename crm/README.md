@@ -1,10 +1,10 @@
-# CRM Reports Setup
+# Celery Setup for CRM Reports
 
-## Install Redis and Dependencies
+## Setup Steps
 
-### Install Redis
+### 1. Install Redis and Dependencies
 
-**Ubuntu/Debian:**
+Install Redis:
 ```bash
 sudo apt update
 sudo apt install redis-server
@@ -12,48 +12,29 @@ sudo systemctl start redis
 sudo systemctl enable redis
 ```
 
-**macOS:**
+Install Python dependencies:
 ```bash
-brew install redis
-brew services start redis
+pip install celery redis django-celery-beat requests gql[requests]
 ```
 
-Verify Redis is running:
-```bash
-redis-cli ping
-```
-
-### Install Dependencies
-
-Install required Python packages:
-```bash
-pip install -r requirements.txt
-```
-
-## Run Migrations
-
-Run Django migrations:
+### 2. Run Migrations
 ```bash
 python manage.py migrate
 ```
 
-## Start Celery Worker
-
-Start the Celery worker:
+### 3. Start Celery Worker
 ```bash
 celery -A crm worker -l info
 ```
 
-## Start Celery Beat
-
-Start the Celery Beat scheduler:
+### 4. Start Celery Beat
 ```bash
 celery -A crm beat -l info
 ```
 
-## Verify Logs
-
-Monitor the CRM report logs:
+### 5. Verify Logs
 ```bash
 tail -f /tmp/crm_report_log.txt
 ```
+
+The CRM report task will run every Monday at 6:00 AM and log reports to `/tmp/crm_report_log.txt`.

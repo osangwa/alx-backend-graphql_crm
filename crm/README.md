@@ -1,6 +1,22 @@
-# Celery Setup for CRM Reports
+# CRM Application with Automated Reporting
 
-## Setup Steps
+A Django-based CRM system with automated weekly report generation using Celery, Redis, and GraphQL.
+
+## Features
+
+- Customer and order management
+- GraphQL API for data queries
+- Automated weekly reports via Celery
+- Redis-backed task queue
+- Scheduled report generation every Monday at 6:00 AM
+
+## Prerequisites
+
+- Python 3.8+
+- Redis server
+- pip package manager
+
+## Installation
 
 ### 1. Install Redis
 
@@ -10,33 +26,42 @@ sudo apt update
 sudo apt install redis-server
 sudo systemctl start redis
 sudo systemctl enable redis
+```
 
-macOS:
-
-bash
+**macOS:**
+```bash
 brew install redis
 brew services start redis
-Verify Redis:
+```
 
-bash
+**Verify Redis Installation:**
+```bash
 redis-cli ping
-2. Install Dependencies
-Add to requirements.txt:
+# Expected output: PONG
+```
 
-text
+### 2. Install Python Dependencies
+
+Add the following to your `requirements.txt`:
+
+```text
 celery>=5.0
 redis>=4.0
 django-celery-beat>=2.0
 requests
 gql[requests]
+```
+
 Install dependencies:
-
-bash
+```bash
 pip install -r requirements.txt
-3. Create Celery Configuration
-File: crm/celery.py
+```
 
-python
+### 3. Configure Celery
+
+**Create `crm/celery.py`:**
+
+```python
 import os
 from celery import Celery
 
@@ -45,16 +70,21 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'crm.settings')
 app = Celery('crm')
 app.config_from_object('django.conf:settings', namespace='CELERY')
 app.autodiscover_tasks()
-File: crm/__init__.py
+```
 
-python
+**Update `crm/__init__.py`:**
+
+```python
 from .celery import app as celery_app
 
 __all__ = ('celery_app',)
-4. Create Celery Task
-File: crm/tasks.py
+```
 
-python
+### 4. Create Celery Task
+
+**Create `crm/tasks.py`:**
+
+```python
 from celery import shared_task
 from gql import gql, Client
 from gql.transport.requests import RequestsHTTPTransport
@@ -107,19 +137,24 @@ def generate_crm_report():
             'status': 'error',
             'error': str(e)
         }
-5. Update Django Settings
-File: crm/settings.py
-Add to INSTALLED_APPS:
+```
 
-python
+### 5. Update Django Settings
+
+**Edit `crm/settings.py`:**
+
+Add to `INSTALLED_APPS`:
+```python
 INSTALLED_APPS = [
     # ... other apps
     'django_celery_beat',
     'crm',
 ]
-Add Celery configuration:
+```
 
-python
+Add Celery configuration at the end of the file:
+```python
+# Celery Configuration
 CELERY_BROKER_URL = 'redis://localhost:6379/0'
 CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
 CELERY_ACCEPT_CONTENT = ['json']
@@ -135,11 +170,15 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': crontab(day_of_week='mon', hour=6, minute=0),
     },
 }
-6. Update GraphQL Schema
-File: crm/schema.py
-Add to Query class:
+```
 
-python
+### 6. Update GraphQL Schema
+
+**Edit `crm/schema.py`:**
+
+Add these fields to your `Query` class:
+
+```python
 class Query(graphene.ObjectType):
     total_customers = graphene.Int()
     total_orders = graphene.Int()
@@ -158,19 +197,118 @@ class Query(graphene.ObjectType):
         from django.db.models import Sum
         result = Order.objects.aggregate(total_revenue=Sum('total_amount'))
         return result['total_revenue'] or 0.0
-7. Run Migrations
-bash
+```
+
+### 7. Run Database Migrations
+
+```bash
 python manage.py makemigrations
 python manage.py migrate
-8. Start Celery Worker
-bash
+```
+
+## Running the Application
+
+### 1. Start Django Development Server
+
+```bash
+python manage.py runserver
+```
+
+### 2. Start Celery Worker
+
+Open a new terminal and run:
+
+```bash
 celery -A crm worker -l info
-9. Start Celery Beat
-bash
+```
+
+### 3. Start Celery Beat Scheduler
+
+Open another terminal and run:
+
+```bash
 celery -A crm beat -l info
-10. Verify Logs
-bash
+```
+
+## Monitoring
+
+### View Report Logs
+
+```bash
 tail -f /tmp/crm_report_log.txt
-The CRM report will run every Monday at 6:00 AM and log to /tmp/crm_report_log.txt.
+```
 
+### Manual Task Execution
 
+To manually trigger the report generation:
+
+```python
+from crm.tasks import generate_crm_report
+generate_crm_report.delay()
+```
+
+Or via Django shell:
+
+```bash
+python manage.py shell
+>>> from crm.tasks import generate_crm_report
+>>> generate_crm_report.delay()
+```
+
+## Report Schedule
+
+The CRM report runs automatically every **Monday at 6:00 AM UTC**.
+
+To modify the schedule, edit the `CELERY_BEAT_SCHEDULE` in `crm/settings.py`.
+
+## Troubleshooting
+
+### Redis Connection Issues
+
+Check if Redis is running:
+```bash
+redis-cli ping
+```
+
+Restart Redis if needed:
+```bash
+# Ubuntu/Debian
+sudo systemctl restart redis
+
+# macOS
+brew services restart redis
+```
+
+### Celery Worker Not Picking Up Tasks
+
+1. Ensure the worker is running
+2. Check the Celery logs for errors
+3. Verify Redis is accessible
+4. Restart the Celery worker
+
+### GraphQL Query Errors
+
+1. Verify Django server is running on `http://localhost:8000`
+2. Check that GraphQL endpoint is accessible at `/graphql`
+3. Ensure models (`Customer`, `Order`) exist and have data
+
+## Project Structure
+
+```
+crm/
+├── __init__.py          # Celery app initialization
+├── celery.py            # Celery configuration
+├── settings.py          # Django settings with Celery config
+├── tasks.py             # Celery tasks
+├── schema.py            # GraphQL schema
+├── models.py            # Django models
+└── README.md            # This file
+```
+
+## License
+
+[Your License Here]
+
+## Contributing
+
+[Your Contributing Guidelines Here]
